@@ -1,0 +1,7 @@
+include: package:flame_lint/analysis_options.yaml
+
+
+linter:
+  rules:
+    
+    # This list is derived from the list of all available lints located at
