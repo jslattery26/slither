@@ -4,8 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'slither/slither.dart';
 
-class PadracingWidget extends StatelessWidget {
-  const PadracingWidget({super.key});
+class SlitherWidget extends StatelessWidget {
+  const SlitherWidget({super.key});
 
   @override
   Widget build(BuildContext context) {

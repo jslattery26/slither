@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -11,11 +12,11 @@ class Player extends PositionComponent
   Player()
       : body = Path()..addOval(const Rect.fromLTWH(0, 0, 20, 20)),
         eyes = Path()
-          ..addOval(const Rect.fromLTWH(4.5, 12, 5, 5))
-          ..addOval(const Rect.fromLTWH(10.5, 12, 5, 5)),
+          ..addOval(const Rect.fromLTWH(12, 4.5, 5, 5))
+          ..addOval(const Rect.fromLTWH(12, 10.5, 5, 5)),
         pupils = Path()
-          ..addOval(const Rect.fromLTWH(6, 14, 2, 2))
-          ..addOval(const Rect.fromLTWH(12, 14, 2, 2)),
+          ..addOval(const Rect.fromLTWH(14, 6, 2, 2))
+          ..addOval(const Rect.fromLTWH(14, 12, 2, 2)),
         velocity = Vector2.zero(),
         super(size: Vector2(20, 20), anchor: Anchor.center);
   final Path body;
@@ -37,31 +38,38 @@ class Player extends PositionComponent
 
   final Vector2 velocity;
   double angularVelocity = 0;
+  Vector2 mouseFromCenter = Vector2(0, 0);
+  Vector2 previousPosition = Vector2(0, 0);
+  double mouseAngle = 0.0;
+  double dif = 0.0;
 
-  final double runSpeed = 150.0;
-  final double jumpSpeed = 300.0;
-  final double gravity = 1000.0;
-  bool facingRight = true;
-  int nJumpsLeft = 2;
-  Vector2 direction = Vector2(0, 0);
-  static const speed = 50.0;
+  static const speed = 100.0;
   static const rotateSpeed = 10.0;
   bool onTarget = false;
 
+  final _trailLength = 100;
+  Queue<BodyPart> bodyTrail = Queue<BodyPart>();
+  double chomps = 1;
+
   void moveForward() {
-    // final magnitude = this.world.pxmi(-speed);
-    final num currentAngle = angle + (math.pi / 2);
-
-    velocity.x = speed * math.cos(currentAngle);
-    velocity.y = speed * math.sin(currentAngle);
+    velocity.x = speed * math.cos(angle);
+    velocity.y = speed * math.sin(angle);
   }
 
-  void rotateLeft() {
-    angularVelocity = -rotateSpeed;
+  void rotateLeftConst() {
+    if (mouseAngle < rotateSpeed) {
+      angularVelocity = -mouseAngle;
+    } else {
+      angularVelocity = -rotateSpeed;
+    }
   }
 
-  void rotateRight() {
-    angularVelocity = rotateSpeed;
+  void rotateRightConst() {
+    if (mouseAngle > rotateSpeed) {
+      angularVelocity = -mouseAngle;
+    } else {
+      angularVelocity = rotateSpeed;
+    }
   }
 
   void stopTurning() {
@@ -71,52 +79,91 @@ class Player extends PositionComponent
   @override
   void update(double dt) {
     moveForward();
-    // if (gameRef.mouse != null) {
-    //   onTarget = toRect().contains(gameRef.mouse!.toOffset());
 
-    //   if (!onTarget) {
-    //     direction = (gameRef.mouse! - position).normalized();
-    //     position += direction * (speed * dt);
-    //   } else {
-    //     print('player$position');
-    //   }
-    // }
+    if (gameRef.mouse != null) {
+      mouseFromCenter = gameRef.mouse! -
+          Vector2(
+            gameRef.canvasSize.x / 2,
+            gameRef.canvasSize.y / 2,
+          );
+      mouseAngle = mouseFromCenter.angleToSigned(velocity) * (180 / math.pi);
+      if (mouseAngle == 0) {
+        stopTurning();
+      } else if (mouseAngle < 0) {
+        rotateRightConst();
+      } else if (mouseAngle > 0) {
+        rotateLeftConst();
+      }
+      //allow arrow keys to be used
+      // if (this.cursors.left.isDown) {
+      //   this.head.body.rotateLeft(this.rotationSpeed);
+      // } else if (this.cursors.right.isDown) {
+      //   this.head.body.rotateRight(this.rotationSpeed);
+      // }
+      //decide whether rotating left or right will angle the head towards
+      //the mouse faster, if arrow keys are not used
+
+      // if (dif < 0 && dif > -180 || dif > 180) {
+      //   rotateLeft();
+      // } else if (dif > 0 && dif < 180 || dif < -180) {
+      //   rotateRight();
+      // } else {
+      //   print('not turning');
+      //   stopTurning();
+      // }
+    }
     position.x += velocity.x * dt;
     position.y += velocity.y * dt;
+
     angle += angularVelocity * dt;
 
-    // if (position.y > 0) {
-    //   position.y = 0;
-    //   velocity.y = 0;
-    //   nJumpsLeft = 2;
+    if (bodyTrail.length > _trailLength) {
+      gameRef.world.remove(bodyTrail.last);
+      bodyTrail.removeLast();
+    }
+    bodyTrail.addFirst(
+      BodyPart()
+        ..position.x = position.x - (1 * math.cos(angle))
+        ..position.y = position.y - (1 * math.sin(angle))
+        ..angle = angle,
+    );
+    gameRef.world.add(bodyTrail.first);
+    // // final d = bodyTrail.length / 2;
+    // for (var i = bodyTrail.length - 1; i >= 1; i--) {
+    //   bodyTrail.elementAt(i).position.x = bodyTrail.elementAt(i - 1).x -
+    //       (math.cos(bodyTrail.elementAt(i).angle));
+    //   bodyTrail.elementAt(i).position.y = bodyTrail.elementAt(i - 1).y -
+    //       (math.sin(bodyTrail.elementAt(i).angle));
     // }
-    // if (position.y < 0) {
-    //   velocity.y += gravity * dt;
+    // for (var i = 0; i < bodyTrail.length; i++) {
+    //   bodyTrail.elementAt(i).position.x =
+    //       position.x - (5 * i * math.cos(angle));
+    //   bodyTrail.elementAt(i).position.y =
+    //       position.y - (5 * i * math.sin(angle));
+    //   if (bodyTrail.elementAt(i).parent == null) {
+    //     gameRef.world.add(
+    //       bodyTrail.elementAt(i),
+    //     );
+    //   }
     // }
-    // if (position.x < 0) {
-    //   position.x = 0;
-    // }
-    // if (position.x > 1000) {
-    //   position.x = 1000;
-    // }
+  }
+
+  double invertAngle(double angle) {
+    return (angle + math.pi) % (2 * math.pi);
   }
 
   @override
   void render(Canvas canvas) {
-    {
-      final h = -position.y; // height above the ground
-      canvas.save();
-      canvas.translate(width / 2, height + 1 + h * 1.05);
-      canvas.scale(1 - h * 0.003, 0.3 - h * 0.001);
-      canvas.drawCircle(Offset.zero, 10, shadowPaint);
-      canvas.restore();
-    }
+    canvas.drawPath(body, innerPaint);
     canvas.drawPath(body, innerPaint);
     canvas.drawPath(body, borderPaint);
+
     canvas.drawPath(eyes, eyesPaint);
     canvas.drawPath(pupils, pupilsPaint);
-    var thing = Path();
-    thing.canvas.drawPath(pupils, pupilsPaint);
+
+    // bodyTrail.forEach((element) {
+    //   element.addToParent(this);
+    // });
   }
 
   @override
@@ -128,13 +175,18 @@ class Player extends PositionComponent
         (event.logicalKey == LogicalKeyboardKey.keyD);
     final keyUp = (event.logicalKey == LogicalKeyboardKey.arrowUp) ||
         (event.logicalKey == LogicalKeyboardKey.keyW);
+    final keySpace = event.logicalKey == LogicalKeyboardKey.space;
 
     if (isKeyDown) {
+      if (keySpace) {
+        chomps += 1;
+        print(chomps);
+      }
       if (keyLeft) {
         // velocity.x = -runSpeed;
-        rotateLeft();
+        rotateLeftConst();
       } else if (keyRight) {
-        rotateRight();
+        rotateRightConst();
         // velocity.x = runSpeed;
       }
     } else {
@@ -150,14 +202,27 @@ class Player extends PositionComponent
         stopTurning();
       }
     }
-    if ((velocity.x > 0) && !facingRight) {
-      facingRight = true;
-      flipHorizontally();
-    }
-    if ((velocity.x < 0) && facingRight) {
-      facingRight = false;
-      flipHorizontally();
-    }
     return super.onKeyEvent(event, keysPressed);
+  }
+}
+
+class BodyPart extends PositionComponent {
+  BodyPart()
+      : body = Path()..addOval(const Rect.fromLTWH(0, 0, 20, 20)),
+        super(size: Vector2(20, 20), anchor: Anchor.center);
+  final Path body;
+  final Paint borderPaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1
+    ..color = const Color(0xffffc67c);
+  final Paint innerPaint = Paint()..color = const Color(0xff9c0051);
+
+  @override
+  void update(double dt) {}
+
+  @override
+  void render(Canvas canvas) {
+    canvas.drawPath(body, innerPaint);
+    canvas.drawPath(body, borderPaint);
   }
 }
